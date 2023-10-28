@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-
+using UnityEngine.SceneManagement;
 public class GameManager : MonoBehaviour
 {
     private static GameManager instance;
@@ -28,6 +28,7 @@ public class GameManager : MonoBehaviour
     /*변수 선언부*/
     public PoolManager poolManager;
     public MouseManager mouseManager;
+    public NetworkManager networkManager;
 
     private int[,] board;
     private int boardSizeX;
@@ -36,15 +37,21 @@ public class GameManager : MonoBehaviour
     private BoundsInt bounds;
 
     private int turn = 0;
-    private bool gameover = false;
+    //private int myTurn = 0;
+    private bool gameover = true;
 
     private void Awake()
     {
-        // 기타 초기화 작업
-        InitBoard(); 
+        //초기화 작업
+        Screen.SetResolution(1024, 768, false);
+
+        if (SceneManager.GetActiveScene().name == "GameScene")
+        {
+            InitBoard();   
+        }
     }
 
-    //오브젝트 풀과 보드판 초기화 함수
+    //보드판 초기화 함수
     private void InitBoard()
     {
         bounds = tilemap.cellBounds;
@@ -61,6 +68,11 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    //게임 시작 초기화
+    public void GameStart()
+    {
+        gameover = false;
+    }
     // 승리 조건 검사 함수
     public int CheckWin()
     {
@@ -111,7 +123,10 @@ public class GameManager : MonoBehaviour
         return gameover;
     }
 
-
+    public void ChangeScene(string sceneName)
+    {
+        SceneManager.LoadScene(sceneName);
+    }
     /*값 주고 받는 함수들 선언부*/
     public int[] GetBoardSize()
     {

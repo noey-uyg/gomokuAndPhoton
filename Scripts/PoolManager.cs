@@ -23,7 +23,7 @@ public class PoolManager : MonoBehaviour
         InitObjectPool();
     }
 
-    //오브젝트 풀과 보드판 초기화 함수
+    //오브젝트 풀 초기화 함수
     private void InitObjectPool()
     {
         bounds = tilemap.cellBounds;

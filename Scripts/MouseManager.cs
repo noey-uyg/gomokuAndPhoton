@@ -28,15 +28,18 @@ public class MouseManager : MonoBehaviour
 
         int[] board = gameManager.GetBoardSize();
         tilemap = gameManager.GetTileMap();
-        imagepool = gameManager.poolManager.imagepool;
         boardSizeX = board[0];
         boardSizeY = board[1];
-        
+
+        imagepool = gameManager.poolManager.imagepool;
+
     }
 
 
     private void Update()
     {
+        if (gameManager.IsGameOver()) return;
+
         currentTurn = gameManager.GetCurrentPlayer();
 
         // 마우스 위치를 월드 좌표로 변환
@@ -72,7 +75,7 @@ public class MouseManager : MonoBehaviour
                 }
                 
                 // 클릭 시 이미지 고정 및 턴 변경
-                if (Input.GetMouseButtonDown(0) && gameManager.GetBoardValue(indexX, indexY) == -1 && !gameManager.IsGameOver())
+                if (Input.GetMouseButtonDown(0) && gameManager.GetBoardValue(indexX, indexY) == -1)
                 {
                     // 클릭 위치에 돌 놓기
                     gameManager.SetBoardValue(indexX, indexY, currentTurn);
