@@ -5,7 +5,7 @@
 
 # Day 1(2023 - 10 - 26)
 - 싱글톤 패턴, 오브젝트 풀링 적용
-- 오목은 Tilemap으로 구현
+- 오목판은 Tilemap으로 구현
 - Tilemap collider 2D Component를 추가해서 마우스와 cell 좌표를 통해 오목알을 착수할 수 있도록 구현
 - 규칙없는 오목
 
