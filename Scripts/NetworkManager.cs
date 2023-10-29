@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using Hashtable = ExitGames.Client.Photon.Hashtable;
 using Photon.Pun;
 using Photon.Realtime;
 
@@ -12,12 +13,11 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     /*MainScene 변수 선언부*/
     [Header("MainScene_Main")]
-    public GameObject lobbyPanel;
-    public Text text;
+    public Text mainConnectText;
     public InputField inputName;
 
+    /*LobbtScene 변수 선언부*/
     [Header("MainScene_Lobby")]
-    public GameObject mainPanel;
     public Text welcomeLobby;
     public Text currentConnectedUsers;
     public Text roomPage;
@@ -30,7 +30,6 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     private int currentPage = 0;
     private int maxShowPage;
     List<RoomInfo> roomList = new List<RoomInfo>();
-    private bool isGameStart = false;
 
     /*GameScene 변수 선언부*/
     public PhotonView pv;
@@ -46,21 +45,25 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     private void Start()
     {
+        gameManager = GameManager.Instance;
+
         if (SceneManager.GetActiveScene().name == "GameScene")
         {
             GameSceneInit();
         }
-        else if(SceneManager.GetActiveScene().name == "MainScene")
+        else if(SceneManager.GetActiveScene().name == "LobbyScene")
         {
-            MainSceneInit();
+            LobbySceneInit();
         }
         
     }
 
     private void Update()
     {
-        if (SceneManager.GetActiveScene().name == "GameScene") return;
-        else if (SceneManager.GetActiveScene().name == "MainScene")
+        if (SceneManager.GetActiveScene().name == "GameScene") {
+            return;
+        } 
+        else if (SceneManager.GetActiveScene().name == "LobbyScene")
         {
             currentConnectedUsers.text = "현재 " + PhotonNetwork.CountOfPlayers + "명 접속 중";
         }
@@ -74,22 +77,20 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         chatScrollbar.value = 1;
     }
 
-    //MainScene에서 사용할 것들
-    void MainSceneInit()
+    //LobbyScene에서 사용할 것들
+    void LobbySceneInit()
     {
-        gameManager = GameManager.Instance;
-        lobbyPanel.transform.localScale = Vector3.zero;
-        mainPanel.transform.localScale = Vector3.one;
-
         maxShowPage = roomBtn.GetLength(0);
     }
+
     //서버 연결 시도
     public void ConnectServer()
     {
-        text.text = "연결 중";
+        mainConnectText.text = "연결 중";
         if (!PhotonNetwork.IsConnected)
         {
             PhotonNetwork.ConnectUsingSettings();
+            PhotonNetwork.NickName = inputName.text;
         }
     }
 
@@ -99,6 +100,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         if (PhotonNetwork.IsConnected)
         {
             PhotonNetwork.Disconnect();
+            gameManager.ChangeScene("MainScene");
         }
     }
 
@@ -108,14 +110,12 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         Debug.Log("서버 연결 성공");
         //서버 연결 성공 시 로비접속
         PhotonNetwork.JoinLobby();
+        gameManager.ChangeScene("LobbyScene");
     }
 
     //로비에 접속 성공했을 때
     public override void OnJoinedLobby()
     {
-        PhotonNetwork.NickName = inputName.text;
-        lobbyPanel.transform.localScale = Vector3.one;
-        mainPanel.transform.localScale = Vector3.zero;
         welcomeLobby.text = "\"" + PhotonNetwork.NickName + "\"님 환영합니다!";
         roomList.Clear();
     }
@@ -123,15 +123,20 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     //서버 연결 실패 콜백
     public override void OnDisconnected(DisconnectCause cause)
     {
-        lobbyPanel.transform.localScale = Vector3.zero;
-        mainPanel.transform.localScale = Vector3.one;
         Debug.Log("서버 연결 끊김");
     }
 
     //방 만들고 바로 참가
     public void CreateRoom() {
         string inputRoomName = roomName.text;
-        RoomOptions options = new RoomOptions { MaxPlayers = 2 };
+        RoomOptions options = new RoomOptions{
+            MaxPlayers = 2,
+            CustomRoomProperties = new Hashtable
+            {
+                {"GameState", false}
+            },
+            CustomRoomPropertiesForLobby = new string[] { "GameState" }
+        };
         PhotonNetwork.CreateRoom(inputRoomName, options);
     }
 
@@ -155,6 +160,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     public void LeaveRoom()
     {
         PhotonNetwork.LeaveRoom();
+        gameManager.ChangeScene("LobbyScene");
     }
 
     //방에 새로운 플레이어가 들어왔을 때
@@ -169,6 +175,12 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     {
         string temp = "<" + otherPlayer.NickName + ">님이 퇴장하셨습니다.";
         pv.RPC("NoticeRPC", RpcTarget.All, temp);
+        if (!gameManager.IsGameOver())
+        {
+            gameManager.pv.RPC("SyncOver", RpcTarget.All);
+            string soloText = "더 이상 게임을 진행할 수 없어, 게임을 종료합니다.";
+            pv.RPC("NoticeRPC", RpcTarget.MasterClient, soloText);
+        }
     }
 
     //방이 업데이트 될 때마다 호출
@@ -225,14 +237,15 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
             if(roomIndex < roomList.Count)
             {
-                string gameState = isGameStart ? "게임중 " : "대기중 ";
+                bool gameState = (bool)roomList[roomIndex].CustomProperties["GameState"];
+                string gameStateText = gameState ? "게임중 " : "대기중 ";
                 roomBtn[i].transform.GetChild(0).GetComponent<Text>().text = roomList[roomIndex].Name;
-                roomBtn[i].transform.GetChild(1).GetComponent<Text>().text = gameState + roomList[roomIndex].PlayerCount + "/" + roomList[roomIndex].MaxPlayers;
-                roomBtn[i].gameObject.SetActive(true);
+                roomBtn[i].transform.GetChild(1).GetComponent<Text>().text = gameStateText + roomList[roomIndex].PlayerCount + "/" + roomList[roomIndex].MaxPlayers;
+                roomBtn[i].interactable = true;
             }
             else
             {
-                roomBtn[i].gameObject.SetActive(false);
+                roomBtn[i].interactable = false;
             }
         }
     }
@@ -243,41 +256,51 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         inputChat.text = "";
     }
 
-    //방에 있는 사람에게 RPC전달
+    //Notice와 Chat RPC
     [PunRPC]
-    void NoticeRPC(string msg)
+    public void SendMessage(string msg, Text[] textArray)
     {
         bool isInput = false;
-        for (int i = 0; i < noticeText.Length; i++)
-            if (noticeText[i].text == "")
+        for (int i = 0; i < textArray.Length; i++)
+            if (textArray[i].text == "")
             {
+                if(i == textArray.Length - 5)
+                {
+                    if (textArray == chatText)
+                    {
+                        chatScrollbar.value = 0;
+                    }
+                    else
+                    {
+                        noticeScrollbar.value = 0;
+                    }
+                }
                 isInput = true;
-                noticeText[i].text = msg;
+                textArray[i].text = msg;
                 break;
             }
         if (!isInput) // 꽉차면 한칸씩 위로 올림
         {
-            for (int i = 1; i < noticeText.Length; i++) noticeText[i - 1].text = noticeText[i].text;
-            noticeText[noticeText.Length - 1].text = msg;
+            for (int i = 1; i < textArray.Length; i++)
+            {
+                textArray[i - 1].text = textArray[i].text;
+            }
+
+            textArray[textArray.Length - 1].text = msg;  
         }
+    }
+
+    [PunRPC]
+    void NoticeRPC(string msg)
+    {
+        SendMessage(msg, noticeText);
     }
 
     [PunRPC]
     void ChatRPC(string msg)
     {
-        bool isInput = false;
-        for (int i = 0; i < chatText.Length; i++)
-            if (chatText[i].text == "")
-            {
-                isInput = true;
-                chatText[i].text = msg;
-                break;
-            }
-        if (!isInput) // 꽉차면 한칸씩 위로 올림
-        {
-            for (int i = 1; i < chatText.Length; i++) chatText[i - 1].text = chatText[i].text;
-            chatText[chatText.Length - 1].text = msg;
-        }
+        SendMessage(msg, chatText);
     }
+
 }
 

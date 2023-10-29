@@ -17,6 +17,7 @@ public class PoolManager : MonoBehaviour
 
     private void Start()
     {
+        //초기화 작업
         gameManager = GameManager.Instance;
         tilemap = gameManager.GetTileMap();
 

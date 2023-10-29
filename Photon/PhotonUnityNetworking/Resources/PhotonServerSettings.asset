@@ -41,6 +41,22 @@ MonoBehaviour:
   - RespawnSpaceship
   - ChatRPC
   - NoticeRPC
+  - SetBoardValue
+  - SyncBoard
+  - SyncTurn
+  - SyncStart
+  - SendMessage
+  - GameOver
+  - SyncOver
+  - InitBoard
+  - changeTurn
+  - ChangeTurn
+  - ChangeMyTurn
+  - SetMyTurn
+  - UpdateImage
+  - SyncGameTime
+  - SetGameTime
+  - TimerController
   DisableAutoOpenWizard: 1
   ShowSettings: 1
   DevRegionSetOnce: 1
